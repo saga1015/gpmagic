@@ -25,26 +25,25 @@ my (@MASTER_CONFIG,@STANDBY_CONFIG,@ALLHOST_CONFIG_ARRAY,@SEG_INSTALL_CONFIG_ARR
 my ($CLUSTER_EXISTS,$INSTALL_VERSION,$MAJOR_VERSION,$CAN_USE_EXPECT,$CURRENT_USER_NAME,$GP_ADMIN_NAME,$GP_ADMIN_PASSWD);
 my (%SEGMENT_IP_HASH,%SEGMENT_HOST_HASH,%EXISTS_IP_HASH,%EXISTS_HOST_HASH,$EXISTS_MIRROR,$PRIMARY_COUNT,$MIRROR_COUNT,$MAX_CONTENT,$MAX_DBID);
 my %DEFAULT_GPCONFIG = (
-        "default_statistics_target"                   => [("4.0.0~"  ,"-v 15 -m 15")],
-        "from_collapse_limit"                         => [("4.0.0~"  ,"-v 10 -m 10")],
-        "gp_autostats_mode_in_functions"              => [("4.0.0~"  ,"-v ON_NO_STATS -m ON_NO_STATS")],
-        "gp_create_table_random_default_distribution" => [("4.3.4~"  ,"-v on -m on")],
-        "gp_enable_relsize_collection"                => [("4.3.10~" ,"-v on -m on")],
-        "gp_max_local_distributed_cache"              => [("4.0.0~"  ,"-v 1048576")],
-        "gp_max_partition_level"                      => [("4.0.0~"  ,"-v 1 -m 1")],
-        "gp_segment_connect_timeout"                  => [("4.0.0~"  ,"-v 180 -m 180")],
-        "gp_workfile_compress_algorithm"              => [("~5.0.0"  ,"-v zlib -m zlib")],
-        "gp_workfile_compression"                     => [("6.0.0~"  ,"-v on -m on")],
-        "gp_workfile_limit_per_query"                 => [("4.0.0~"  ,"-v 134217728 -m 134217728")],
-        "gp_workfile_limit_per_segment"               => [("4.0.0~"  ,"-v 134217728 -m 134217728")],
-        "join_collapse_limit"                         => [("4.0.0~"  ,"-v 10 -m 10")],
-        "log_min_duration_statement"                  => [("4.0.0~"  ,"-v 30000 -m 30000")],
-        "log_timezone"                                => [("4.0.0~"  ,"-v HONGKONG -m HONGKONG")],
-        "max_appendonly_tables"                       => [("4.0.0~"  ,"-v 50000 -m 50000")],
-        "max_fsm_pages"                               => [("~5.0.0"  ,"-v 2000000 -m 2000000")],
-        "max_fsm_relations"                           => [("~5.0.0"  ,"-v 30000 -m 30000")],
-        "optimizer_enable_motion_gather"              => [("5.0.0~"  ,"-v off -m off")],
-        "writable_external_table_bufsize"             => [("4.3.7~"  ,"-v 16MB -m 16MB")],
+        "default_statistics_target"                   => [("4.0.0~"    ,"-v 15 -m 15")],
+        "from_collapse_limit"                         => [("4.0.0~"    ,"-v 10 -m 10")],
+        "gp_autostats_mode_in_functions"              => [("4.0.0~"    ,"-v ON_NO_STATS -m ON_NO_STATS")],
+        "gp_create_table_random_default_distribution" => [("4.3.4~"    ,"-v on -m on")],
+        "gp_enable_relsize_collection"                => [("4.3.10~"   ,"-v on -m on")],
+        "gp_max_local_distributed_cache"              => [("4.0.0~"    ,"-v 1048576")],
+        "gp_max_partition_level"                      => [("4.0.0~"    ,"-v 1 -m 1")],
+        "gp_segment_connect_timeout"                  => [("4.0.0~"    ,"-v 180 -m 180")],
+        "gp_workfile_compress_algorithm"              => [("~5.0.0"    ,"-v zlib -m zlib")],
+        "gp_workfile_compression"                     => [("6.0.0~"    ,"-v on -m on")],
+        "gp_workfile_limit_per_query"                 => [("4.0.0~"    ,"-v 134217728 -m 134217728")],
+        "gp_workfile_limit_per_segment"               => [("4.0.0~"    ,"-v 134217728 -m 134217728")],
+        "join_collapse_limit"                         => [("4.0.0~"    ,"-v 10 -m 10")],
+        "log_min_duration_statement"                  => [("4.0.0~"    ,"-v 30000 -m 30000")],
+        "log_timezone"                                => [("4.0.0~"    ,"-v HONGKONG -m HONGKONG")],
+        "max_appendonly_tables"                       => [("4.0.0~"    ,"-v 50000 -m 50000")],
+        "max_fsm_pages"                               => [("~5.999.0"  ,"-v 2000000 -m 2000000")],
+        "max_fsm_relations"                           => [("~5.999.0"  ,"-v 30000 -m 30000")],
+        "writable_external_table_bufsize"             => [("4.3.7~"    ,"-v 16MB -m 16MB")],
 );
 my ($COMMAND_FILE_NAME,$EXKEYS_FILE_NAME) = ($WORK_PATH."/install_command.sh",$WORK_PATH."/gpsshexkeys");
 my ($ssh) = ("ssh -o NumberOfPasswordPrompts=1");
@@ -896,25 +895,6 @@ sub modifySystemConfig{
         $config_command =~ s/HOSTNAME_CONFIG_START.*HOSTNAME_CONFIG_END//s;
     }
     print $file_handle $config_command;
-    if("" eq $IGNORE_HOSTS){
-        print $file_handle "echo -n '127.0.0.1 = localhost\n";
-        print $file_handle "#Greenplum = hosts start\n";
-        for my $exists_ip(keys %EXISTS_IP_HASH){
-            my $exists_host = $EXISTS_IP_HASH{$exists_ip};
-            print $file_handle "$exists_ip = $exists_host\n";
-        }
-        my ($m_ip,$m_hostname) = @MASTER_CONFIG;
-        my ($s_ip,$s_hostname) = @STANDBY_CONFIG;
-        for my $config(@ALLHOST_CONFIG_ARRAY){
-            my ($ip,$hostname,$role,$cur_ring,$cur_order) = @$config;
-            if((($role =~ /^M/ && $ip eq $m_ip) || ($role =~ /^ST/ && $ip eq $s_ip)) && exists $SEGMENT_IP_HASH{$ip}){
-                next;
-            }
-            print $file_handle "$ip = $hostname\n";
-        }
-        print $file_handle q#'|awk -F ' = ' '{system("sed -e /^"$1"[[:space:]]/d -e '\''/[[:space:]]"$2"[[:space:]]/d'\'' -e '\''/[[:space:]]"$2"$/d'\'' -i /etc/hosts;echo '\''"$1"    "$2"'\'' >> /etc/hosts")}'#."\n";
-        print $file_handle "##################################################################################\n";
-    }
     close $file_handle;
     my ($master_path,$segment_path);
     for my $config(@ALLHOST_CONFIG_ARRAY){
@@ -949,6 +929,47 @@ sub modifySystemConfig{
             }
         }
         executeWithExpect(qq{$ssh $GP_ADMIN_NAME\@$ip -T "date"},1,([["yes/no","yes",1],["password",decode($GP_ADMIN_PASSWD)],["*#"]]));
+    }
+    if("" eq $IGNORE_HOSTS){
+        if(!open($file_handle,">",$COMMAND_FILE_NAME)){
+            errorMessage("Can not open file $COMMAND_FILE_NAME");
+        }
+        $file_handle->autoflush(1);
+        print $file_handle "#!/bin/bash\n";
+        print $file_handle "echo -n '127.0.0.1 = localhost\n";
+        print $file_handle "#Greenplum = hosts start\n";
+        for my $exists_ip(keys %EXISTS_IP_HASH){
+            my $exists_host = $EXISTS_IP_HASH{$exists_ip};
+            print $file_handle "$exists_ip = $exists_host\n";
+        }
+        my ($m_ip,$m_hostname) = @MASTER_CONFIG;
+        my ($s_ip,$s_hostname) = @STANDBY_CONFIG;
+        for my $config(@ALLHOST_CONFIG_ARRAY){
+            my ($ip,$hostname,$role,$cur_ring,$cur_order) = @$config;
+            if((($role =~ /^M/ && $ip eq $m_ip) || ($role =~ /^ST/ && $ip eq $s_ip)) && exists $SEGMENT_IP_HASH{$ip}){
+                next;
+            }
+            print $file_handle "$ip = $hostname\n";
+        }
+        print $file_handle q#'|awk -F ' = ' '{system("sed -e /^"$1"[[:space:]]/d -e '\''/[[:space:]]"$2"[[:space:]]/d'\'' -e '\''/[[:space:]]"$2"$/d'\'' -i /etc/hosts;echo '\''"$1"    "$2"'\'' >> /etc/hosts")}'#."\n";
+        print $file_handle "##################################################################################\n";
+        close $file_handle;
+        for my $exists_ip(keys %EXISTS_IP_HASH){
+            my $command = qq{scp -q $COMMAND_FILE_NAME $exists_ip:$COMMAND_FILE_NAME};
+            executeWithExpect($command,1,([["yes/no","yes",1],["password",$PASSWORD],["*#"]]));
+            $command = qq{$ssh $exists_ip -T "sudo sh $COMMAND_FILE_NAME"};
+            executeWithExpect($command,1,([["yes/no","yes",1],["password",$PASSWORD],["*#"]]));
+        }
+        for my $config(@ALLHOST_CONFIG_ARRAY){
+            my ($ip,$hostname,$role,$cur_ring,$cur_order) = @$config;
+            if((($role =~ /^M/ && $ip eq $m_ip) || ($role =~ /^ST/ && $ip eq $s_ip)) && exists $SEGMENT_IP_HASH{$ip}){
+                next;
+            }
+            my $command = qq{scp -q $COMMAND_FILE_NAME $ip:$COMMAND_FILE_NAME};
+            executeWithExpect($command,1,([["yes/no","yes",1],["password",$PASSWORD],["*#"]]));
+            $command = qq{$ssh $ip -T "sudo sh $COMMAND_FILE_NAME"};
+            executeWithExpect($command,1,([["yes/no","yes",1],["password",$PASSWORD],["*#"]]));
+        }
     }
     if(!$IGNORE_INIT && $master_path eq ""){
         errorMessage("Not find Master data path");
@@ -1393,7 +1414,7 @@ sub gpConfig{
             my $b_number = int($b_array[0]) * 1000000 + int($b_array[1]) * 1000 + int($b_array[2]);
             my @e_array = split(/\./,$end);
             my $e_number = int($e_array[0]) * 1000000 + int($e_array[1]) * 1000 + int($e_array[2]);
-            if($b_number <= $version_number && $version_number <= $e_number){
+            if($b_number <= $version_number && ($version_number <= $e_number || $e_number == 0)){
                 my $gpconfig = qq{sudo su - $GP_ADMIN_NAME <<END_OF_COMMAND\n. /usr/local/greenplum-db/greenplum_path.sh > /dev/null 2>&1\n};
                 $gpconfig = $gpconfig.qq{gpconfig -c $key }.$config.qq{\nEND_OF_COMMAND};
                 system($gpconfig);
